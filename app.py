@@ -19,7 +19,73 @@ st.divider()
 # FUNÇÃO – JOGOS REAIS DO DIA
 # ==============================
 @st.cache_data(ttl=3600)
+def @st.cache_data(ttl=3600)
 def carregar_jogos_reais():
+    url = "https://www.scorebat.com/video-api/v3/"
+    resposta = requests.get(url, timeout=10)
+    data = resposta.json()
+
+    # 🏆 PRINCIPAIS COMPETIÇÕES
+    ligas_principais = [
+        "Premier League",
+        "La Liga",
+        "Serie A",
+        "Bundesliga",
+        "Ligue 1",
+        "UEFA Champions League",
+        "UEFA Europa League",
+        "Brasileirão",
+        "Brazil Serie A"
+    ]
+
+    jogos = []
+    hoje = datetime.utcnow().date()
+
+    for item in data.get("response", []):
+        try:
+            data_jogo = datetime.fromisoformat(
+                item["date"].replace("Z", "+00:00")
+            ).date()
+
+            liga = item["competition"]
+
+            # 🔍 FILTRO POR DATA + COMPETIÇÃO
+            if data_jogo == hoje and any(liga_nome in liga for liga_nome in ligas_principais):
+                casa = item["home"]["name"]
+                fora = item["away"]["name"]
+                horario = datetime.fromisoformat(
+                    item["date"].replace("Z", "+00:00")
+                ).strftime("%H:%M")
+
+                # 🔒 métricas pré-live LTD 60
+                gol_60 = 70
+                over_ht = 68
+                min_gol = 36
+
+                jogos.append([
+                    horario,
+                    liga,
+                    f"{casa} x {fora}",
+                    gol_60,
+                    over_ht,
+                    min_gol
+                ])
+
+        except Exception:
+            continue
+
+    return pd.DataFrame(
+        jogos,
+        columns=[
+            "Horário",
+            "Liga",
+            "Jogo",
+            "% Gol até 60",
+            "Over 0.5 HT",
+            "Min médio 1º Gol"
+        ]
+    )
+:
     url = "https://www.scorebat.com/video-api/v3/"
     resposta = requests.get(url, timeout=10)
     data = resposta.json()
