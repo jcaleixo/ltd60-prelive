@@ -25,31 +25,39 @@ def carregar_jogos_reais():
     data = resposta.json()
 
     jogos = []
-
-    hoje = datetime.now().date()
+    hoje = datetime.utcnow().date()
 
     for item in data.get("response", []):
-        data_jogo = datetime.fromtimestamp(item["date"]).date()
+        try:
+            # 🔧 CORREÇÃO PRINCIPAL (string → datetime)
+            data_jogo = datetime.fromisoformat(
+                item["date"].replace("Z", "+00:00")
+            ).date()
 
-        if data_jogo == hoje:
-            casa = item["home"]["name"]
-            fora = item["away"]["name"]
-            liga = item["competition"]
-            horario = datetime.fromtimestamp(item["date"]).strftime("%H:%M")
+            if data_jogo == hoje:
+                casa = item["home"]["name"]
+                fora = item["away"]["name"]
+                liga = item["competition"]
+                horario = datetime.fromisoformat(
+                    item["date"].replace("Z", "+00:00")
+                ).strftime("%H:%M")
 
-            # 🔒 métricas pré-live conservadoras (modelo LTD 60)
-            gol_60 = 70
-            over_ht = 68
-            min_gol = 36
+                # 🔒 métricas pré-live (modelo LTD 60)
+                gol_60 = 70
+                over_ht = 68
+                min_gol = 36
 
-            jogos.append([
-                horario,
-                liga,
-                f"{casa} x {fora}",
-                gol_60,
-                over_ht,
-                min_gol
-            ])
+                jogos.append([
+                    horario,
+                    liga,
+                    f"{casa} x {fora}",
+                    gol_60,
+                    over_ht,
+                    min_gol
+                ])
+
+        except Exception:
+            continue
 
     return pd.DataFrame(
         jogos,
