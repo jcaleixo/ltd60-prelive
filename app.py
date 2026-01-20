@@ -44,17 +44,40 @@ st.caption("Seleção automática • Filtros equilibrados–conservadores • 1
 # =========================
 # DADOS (EXEMPLO PRÉ-LIVE)
 # =========================
-dados = [
-    ["16:00", "Premier League", "Arsenal x Fulham", 74, 72, 34],
-    ["17:30", "La Liga", "Villarreal x Getafe", 69, 71, 36],
-    ["19:00", "Serie A", "Atalanta x Lecce", 81, 78, 31],
-    ["21:45", "Ligue 1", "Lyon x Metz", 61, 66, 41],
-]
+dados = @st.cache_data(ttl=3600)
+def carregar_jogos_do_dia():
+    url = "https://www.worldfootball.net/matches/"
+    tabelas = pd.read_html(url)
 
-df = pd.DataFrame(dados, columns=[
-    "Horário", "Liga", "Jogo",
-    "% Gol até 60", "Over 0.5 HT", "Min 1º Gol"
-])
+    jogos = []
+
+    for tabela in tabelas:
+        if "Home" in tabela.columns and "Away" in tabela.columns:
+            for _, row in tabela.iterrows():
+                jogo = f"{row['Home']} x {row['Away']}"
+
+                # valores estatísticos simulados (pré-live seguro)
+                gol_60 = 70
+                over_ht = 72
+                min_gol = 36
+
+                jogos.append([
+                    "Hoje",
+                    "Internacional",
+                    jogo,
+                    gol_60,
+                    over_ht,
+                    min_gol
+                ])
+
+    return pd.DataFrame(jogos, columns=[
+        "Horário", "Liga", "Jogo",
+        "% Gol até 60", "Over 0.5 HT", "Min 1º Gol"
+    ])
+
+df = carregar_jogos_do_dia()
+
+
 
 # =========================
 # FILTRO LTD 60
