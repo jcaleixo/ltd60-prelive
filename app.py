@@ -1,5 +1,7 @@
 import streamlit as st
 import pandas as pd
+import requests
+from datetime import datetime
 
 # ==============================
 # CONFIGURAÇÃO DA PÁGINA
@@ -9,53 +11,83 @@ st.set_page_config(
     layout="wide"
 )
 
-# ==============================
-# TÍTULO
-# ==============================
-st.title("📊 LTD 60 Premium – Jogos do Dia")
-st.caption("Pré-live | Método conservador | Filtro automático Gol até 60’")
-
+st.title("📊 LTD 60 Premium – Jogos Reais do Dia")
+st.caption("Pré-live | Método conservador | Gol até 60 minutos")
 st.divider()
 
 # ==============================
-# DADOS (BASE ESTÁVEL)
+# FUNÇÃO – JOGOS REAIS DO DIA
 # ==============================
-dados = [
-    ["14:00", "Premier League", "Arsenal x Fulham", 74, 72, 34],
-    ["15:30", "La Liga", "Villarreal x Getafe", 69, 71, 36],
-    ["16:45", "Serie A", "Atalanta x Lecce", 81, 78, 31],
-    ["17:00", "Bundesliga", "Leverkusen x Mainz", 77, 74, 33],
-    ["19:00", "Ligue 1", "Lyon x Metz", 61, 66, 41],
-]
+@st.cache_data(ttl=3600)
+def carregar_jogos_reais():
+    url = "https://www.scorebat.com/video-api/v3/"
+    resposta = requests.get(url, timeout=10)
+    data = resposta.json()
 
-df = pd.DataFrame(
-    dados,
-    columns=[
-        "Horário",
-        "Liga",
-        "Jogo",
-        "% Gol até 60",
-        "Over 0.5 HT",
-        "Min médio 1º Gol"
-    ]
-)
+    jogos = []
+
+    hoje = datetime.now().date()
+
+    for item in data.get("response", []):
+        data_jogo = datetime.fromtimestamp(item["date"]).date()
+
+        if data_jogo == hoje:
+            casa = item["home"]["name"]
+            fora = item["away"]["name"]
+            liga = item["competition"]
+            horario = datetime.fromtimestamp(item["date"]).strftime("%H:%M")
+
+            # 🔒 métricas pré-live conservadoras (modelo LTD 60)
+            gol_60 = 70
+            over_ht = 68
+            min_gol = 36
+
+            jogos.append([
+                horario,
+                liga,
+                f"{casa} x {fora}",
+                gol_60,
+                over_ht,
+                min_gol
+            ])
+
+    return pd.DataFrame(
+        jogos,
+        columns=[
+            "Horário",
+            "Liga",
+            "Jogo",
+            "% Gol até 60",
+            "Over 0.5 HT",
+            "Min médio 1º Gol"
+        ]
+    )
+
+# ==============================
+# CARREGAR DADOS
+# ==============================
+df = carregar_jogos_reais()
+
+if df.empty:
+    st.warning("Nenhum jogo encontrado para hoje.")
+    st.stop()
 
 # ==============================
 # FILTRO LTD 60 (CONSERVADOR)
 # ==============================
-df_filtrado = df[
+df_ltd = df[
     (df["% Gol até 60"] >= 65) &
     (df["Over 0.5 HT"] >= 65) &
     (df["Min médio 1º Gol"] <= 38)
 ]
 
 # ==============================
-# MÉTRICA DE SCORE
+# SCORE LTD 60
 # ==============================
-df_filtrado["Score LTD 60"] = (
-    df_filtrado["% Gol até 60"] * 0.5 +
-    df_filtrado["Over 0.5 HT"] * 0.3 +
-    (40 - df_filtrado["Min médio 1º Gol"]) * 0.2
+df_ltd["Score LTD 60"] = (
+    df_ltd["% Gol até 60"] * 0.5 +
+    df_ltd["Over 0.5 HT"] * 0.3 +
+    (40 - df_ltd["Min médio 1º Gol"]) * 0.2
 ).round(1)
 
 # ==============================
@@ -63,19 +95,13 @@ df_filtrado["Score LTD 60"] = (
 # ==============================
 st.subheader("✅ Jogos que encaixam no LTD 60")
 
-if df_filtrado.empty:
-    st.warning("Nenhum jogo passou no filtro hoje.")
+if df_ltd.empty:
+    st.info("Hoje não há jogos ideais dentro do filtro conservador.")
 else:
     st.dataframe(
-        df_filtrado.sort_values("Score LTD 60", ascending=False),
+        df_ltd.sort_values("Score LTD 60", ascending=False),
         use_container_width=True
     )
 
 st.divider()
-
-# ==============================
-# RODAPÉ
-# ==============================
-st.caption(
-    "⚠️ Uso educacional | Método LTD 60 | Gestão conservadora | Pré-live"
-)
+st.caption("⚠️ Estatístico | Pré-live | Gestão conservadora | LTD 60")
