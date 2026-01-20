@@ -1,110 +1,81 @@
 import streamlit as st
 import pandas as pd
-from datetime import datetime
 
-# =========================
+# ==============================
 # CONFIGURAÇÃO DA PÁGINA
-# =========================
+# ==============================
 st.set_page_config(
-    page_title="LTD 60 • Pré-Live",
-    page_icon="⚽",
+    page_title="LTD 60 Premium",
     layout="wide"
 )
 
-# =========================
-# ESTILO (VERDE TRADER)
-# =========================
-st.markdown("""
-<style>
-body { background-color: #0e1b16; }
-.block-container { padding-top: 2rem; }
-h1, h2, h3, h4 { color: #2ecc71; }
-p, span, div { color: #eafaf1; }
-.stButton>button {
-    background-color: #2ecc71;
-    color: black;
-    font-weight: bold;
-    border-radius: 10px;
-}
-.card {
-    background-color: #13251d;
-    padding: 15px;
-    border-radius: 15px;
-    margin-bottom: 10px;
-}
-</style>
-""", unsafe_allow_html=True)
-
-# =========================
+# ==============================
 # TÍTULO
-# =========================
-st.title("⚽ LTD 60 — Pré-Live")
-st.caption("Seleção automática • Filtros equilibrados–conservadores • 100% gratuito")
+# ==============================
+st.title("📊 LTD 60 Premium – Jogos do Dia")
+st.caption("Pré-live | Método conservador | Filtro automático Gol até 60’")
 
-# =========================
-# DADOS (EXEMPLO PRÉ-LIVE)
-# =========================
-dados = @st.cache_data(ttl=3600)
-def carregar_jogos_do_dia():
-    url = "https://www.worldfootball.net/matches/"
-    tabelas = pd.read_html(url)
+st.divider()
 
-    jogos = []
-
-    for tabela in tabelas:
-        if "Home" in tabela.columns and "Away" in tabela.columns:
-            for _, row in tabela.iterrows():
-                jogo = f"{row['Home']} x {row['Away']}"
-
-                # valores estatísticos simulados (pré-live seguro)
-                gol_60 = 70
-                over_ht = 72
-                min_gol = 36
-
-                jogos.append([
-                    "Hoje",
-                    "Internacional",
-                    jogo,
-                    gol_60,
-                    over_ht,
-                    min_gol
-                ])
-
-    return pd.DataFrame(jogos, columns=[
-        "Horário", "Liga", "Jogo",
-        "% Gol até 60", "Over 0.5 HT", "Min 1º Gol"
-    ])
-
-df = carregar_jogos_do_dia()
-
-
-
-# =========================
-# FILTRO LTD 60
-# =========================
-filtro = df[
-    (df["% Gol até 60"] >= 68) &
-    (df["Over 0.5 HT"] >= 70) &
-    (df["Min 1º Gol"] <= 38)
+# ==============================
+# DADOS (BASE ESTÁVEL)
+# ==============================
+dados = [
+    ["14:00", "Premier League", "Arsenal x Fulham", 74, 72, 34],
+    ["15:30", "La Liga", "Villarreal x Getafe", 69, 71, 36],
+    ["16:45", "Serie A", "Atalanta x Lecce", 81, 78, 31],
+    ["17:00", "Bundesliga", "Leverkusen x Mainz", 77, 74, 33],
+    ["19:00", "Ligue 1", "Lyon x Metz", 61, 66, 41],
 ]
 
-# =========================
+df = pd.DataFrame(
+    dados,
+    columns=[
+        "Horário",
+        "Liga",
+        "Jogo",
+        "% Gol até 60",
+        "Over 0.5 HT",
+        "Min médio 1º Gol"
+    ]
+)
+
+# ==============================
+# FILTRO LTD 60 (CONSERVADOR)
+# ==============================
+df_filtrado = df[
+    (df["% Gol até 60"] >= 65) &
+    (df["Over 0.5 HT"] >= 65) &
+    (df["Min médio 1º Gol"] <= 38)
+]
+
+# ==============================
+# MÉTRICA DE SCORE
+# ==============================
+df_filtrado["Score LTD 60"] = (
+    df_filtrado["% Gol até 60"] * 0.5 +
+    df_filtrado["Over 0.5 HT"] * 0.3 +
+    (40 - df_filtrado["Min médio 1º Gol"]) * 0.2
+).round(1)
+
+# ==============================
 # EXIBIÇÃO
-# =========================
-st.subheader("📅 Jogos Aprovados")
+# ==============================
+st.subheader("✅ Jogos que encaixam no LTD 60")
 
-if filtro.empty:
-    st.warning("Nenhum jogo encaixa no método LTD 60 hoje.")
+if df_filtrado.empty:
+    st.warning("Nenhum jogo passou no filtro hoje.")
 else:
-    for _, row in filtro.iterrows():
-        st.markdown(f"""
-        <div class="card">
-            ⏰ <b>{row['Horário']}</b> — 🏆 {row['Liga']}<br>
-            ⚽ <b>{row['Jogo']}</b><br>
-            📊 Gol até 60: <b>{row['% Gol até 60']}%</b> |
-            ⏱️ Min 1º Gol: <b>{row['Min 1º Gol']}'</b><br>
-            🟢 <b>APTO LTD 60</b>
-        </div>
-        """, unsafe_allow_html=True)
+    st.dataframe(
+        df_filtrado.sort_values("Score LTD 60", ascending=False),
+        use_container_width=True
+    )
 
-st.caption(f"Atualizado em {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+st.divider()
+
+# ==============================
+# RODAPÉ
+# ==============================
+st.caption(
+    "⚠️ Uso educacional | Método LTD 60 | Gestão conservadora | Pré-live"
+)
